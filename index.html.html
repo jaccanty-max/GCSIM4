@@ -458,46 +458,10 @@
         // Physical Constants
         const R = 8.314; // Gas constant J/(mol*K)
 
-        // Built-in NIST Chemistry WebBook Reference Cache for instant offline/CORS-safe lookup
-        const NIST_REFERENCE_DB = {
-            'methane': { dH: 8.19, dS: 73.3, title: 'Methane' },
-            'ethane': { dH: 14.7, dS: 79.7, title: 'Ethane' },
-            'propane': { dH: 18.8, dS: 81.3, title: 'Propane' },
-            'butane': { dH: 22.4, dS: 82.2, title: 'Butane' },
-            'pentane': { dH: 26.4, dS: 85.4, title: 'Pentane' },
-            'hexane': { dH: 31.5, dS: 92.1, title: 'Hexane' },
-            'heptane': { dH: 36.6, dS: 98.5, title: 'Heptane' },
-            'octane': { dH: 41.5, dS: 104.2, title: 'Octane' },
-            'nonane': { dH: 46.4, dS: 109.5, title: 'Nonane' },
-            'decane': { dH: 51.4, dS: 114.9, title: 'Decane' },
-            'undecane': { dH: 56.3, dS: 120.1, title: 'Undecane' },
-            'dodecane': { dH: 61.3, dS: 125.3, title: 'Dodecane' },
-            'benzene': { dH: 33.9, dS: 96.0, title: 'Benzene' },
-            'toluene': { dH: 38.0, dS: 99.1, title: 'Toluene' },
-            'ethylbenzene': { dH: 42.2, dS: 103.1, title: 'Ethylbenzene' },
-            'o-xylene': { dH: 43.4, dS: 104.0, title: 'o-Xylene' },
-            'm-xylene': { dH: 42.7, dS: 103.5, title: 'm-Xylene' },
-            'p-xylene': { dH: 42.4, dS: 103.0, title: 'p-Xylene' },
-            'methanol': { dH: 37.4, dS: 110.8, title: 'Methanol' },
-            'ethanol': { dH: 42.3, dS: 120.4, title: 'Ethanol' },
-            '1-propanol': { dH: 47.5, dS: 128.2, title: '1-Propanol' },
-            '2-propanol': { dH: 45.4, dS: 127.7, title: '2-Propanol' },
-            '1-butanol': { dH: 52.3, dS: 133.8, title: '1-Butanol' },
-            'acetone': { dH: 31.3, dS: 95.1, title: 'Acetone' },
-            '2-butanone': { dH: 34.5, dS: 97.8, title: '2-Butanone' },
-            'diethyl ether': { dH: 27.1, dS: 88.1, title: 'Diethyl ether' },
-            'ethyl acetate': { dH: 35.6, dS: 101.6, title: 'Ethyl acetate' },
-            'chloroform': { dH: 31.4, dS: 93.9, title: 'Chloroform' },
-            'dichloromethane': { dH: 28.8, dS: 92.1, title: 'Dichloromethane' },
-            'carbon tetrachloride': { dH: 32.4, dS: 92.6, title: 'Carbon tetrachloride' },
-            'cyclohexane': { dH: 33.0, dS: 93.3, title: 'Cyclohexane' },
-            'naphthalene': { dH: 53.4, dS: 108.7, title: 'Naphthalene' }
-        };
-
         // Phase 4 Initial Solutes State (dH in kJ/mol, dS in J/(mol*K))
         let compounds = [
-            { id: 1, name: 'Hexane', dH: 31.5, dS: 92.1, Dm: 0.1, Ds: 0.00001, color: '#4f46e5', status: 'found' },
-            { id: 2, name: 'Octane', dH: 41.5, dS: 104.2, Dm: 0.1, Ds: 0.00001, color: '#10b981', status: 'found' }
+            { id: 1, name: 'Hexane', dH: 31.5, dS: 92.1, Dm: 0.1, Ds: 0.00001, color: '#4f46e5', status: 'found', sourceNote: 'NIST WebBook' },
+            { id: 2, name: 'Octane', dH: 41.5, dS: 104.2, Dm: 0.1, Ds: 0.00001, color: '#10b981', status: 'found', sourceNote: 'NIST WebBook' }
         ];
 
         // Phase 4 Temperature Program State
@@ -645,7 +609,159 @@
                             <i class="fa-solid fa-xmark"></i>
                         </button>
                     </td>
-        // NIST WebBook Lookup & Thermodynamic Extraction
+                </tr>
+            `).join('');
+
+            const totalDisplay = document.getElementById('totalGradientTimeDisplay');
+            if (totalDisplay) {
+                totalDisplay.textContent = `${schedule.totalTimeMin.toFixed(2)} min (${(schedule.totalTimeMin * 60).toFixed(1)} s)`;
+            }
+        }
+
+        function addGradientStep() {
+            const lastStep = gradientSteps[gradientSteps.length - 1];
+            const prevTemp = lastStep ? (parseFloat(lastStep.value) || 60) : 60;
+            gradientSteps.push({
+                id: Date.now(),
+                type: 'Ramp',
+                rate: 20,
+                value: prevTemp + 40,
+                holdTime: 1
+            });
+            renderGradientTable();
+            updateSimulation();
+        }
+
+        function removeGradientStep(id) {
+            if (gradientSteps.length <= 1) {
+                showToast("At least one temperature step is required.", true);
+                return;
+            }
+            gradientSteps = gradientSteps.filter(s => s.id !== id);
+            renderGradientTable();
+            updateSimulation();
+        }
+
+        function updateGradientStep(id, prop, val) {
+            const step = gradientSteps.find(s => s.id === id);
+            if (step) {
+                step[prop] = val;
+                if (prop === 'type' && val === 'Ramp' && !step.rate) {
+                    step.rate = 20;
+                }
+                renderGradientTable();
+                updateSimulation();
+            }
+        }
+
+        // Helper: Fetch HTML from webbook.nist.gov using CORS proxies
+        async function fetchNISTPage(url) {
+            const proxies = [
+                (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+                (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`
+            ];
+
+            for (const buildProxyUrl of proxies) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 7000);
+                    const res = await fetch(buildProxyUrl(url), { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (res.ok) {
+                        const text = await res.text();
+                        if (text && text.includes('NIST')) {
+                            return text;
+                        }
+                    }
+                } catch (err) {
+                    // Try next proxy
+                }
+            }
+            return null;
+        }
+
+        // Parse Δ_vap H°, T_boil, and S° values from NIST Chemistry WebBook HTML
+        function parseNISTHtml(htmlText) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlText, 'text/html');
+
+            // Verify NIST found a specific chemical species page (not a "Name Not Found" or multi-match disambiguation list without data)
+            const h1Text = (doc.querySelector('h1')?.textContent || '').trim();
+            if (!h1Text || h1Text.toLowerCase().includes('not found') || h1Text.toLowerCase().includes('search results')) {
+                // Check if it's a disambiguation page with a direct link to the exact match
+                return { found: false, doc };
+            }
+
+            let dH_vap = null;   // kJ/mol
+            let T_boil = null;   // K
+            let S_gas = null;    // J/(mol*K)
+            let S_liq = null;    // J/(mol*K)
+
+            const rows = Array.from(doc.querySelectorAll('tr'));
+            for (const row of rows) {
+                const cells = Array.from(row.querySelectorAll('td, th')).map(c => c.textContent.replace(/\s+/g, ' ').trim());
+                if (cells.length < 2) continue;
+
+                const label = cells[0];
+                const valStr = cells[1];
+                // Extract first floating point number (handling ± uncertainty)
+                const numMatch = valStr.match(/(-?\d+(?:\.\d+)?)/);
+                if (!numMatch) continue;
+                const numVal = parseFloat(numMatch[1]);
+
+                // Enthalpy of vaporization: Δ_vap H° (kJ/mol)
+                if (/ΔvapH|Enthalpy of vaporization/i.test(label) && dH_vap === null) {
+                    // Prefer 298.15 K or standard value if units are kJ/mol
+                    const unitCell = cells[2] || valStr;
+                    if (/kJ\/mol/i.test(unitCell)) {
+                        dH_vap = numVal;
+                    } else if (/J\/mol/i.test(unitCell)) {
+                        dH_vap = numVal / 1000;
+                    }
+                }
+
+                // Normal boiling point: T_boil (K)
+                if (/Tboil|Normal boiling point/i.test(label) && T_boil === null) {
+                    const unitCell = cells[2] || valStr;
+                    if (/K/i.test(unitCell)) {
+                        T_boil = numVal;
+                    } else if (/C/i.test(unitCell)) {
+                        T_boil = numVal + 273.15;
+                    }
+                }
+
+                // Standard molar entropy S° (J/(mol*K))
+                if (/S°gas|Entropy.*gas/i.test(label) && S_gas === null) {
+                    S_gas = numVal;
+                }
+                if (/S°liquid|Entropy.*liquid/i.test(label) && S_liq === null) {
+                    S_liq = numVal;
+                }
+            }
+
+            // Calculate ΔS_vap in J/(mol*K):
+            // 1. If both S°_gas and S°_liquid are reported in NIST: ΔS_vap = S°_gas - S°_liquid
+            // 2. Otherwise if ΔH_vap and T_boil are reported in NIST: ΔS_vap = (ΔH_vap * 1000) / T_boil
+            let dS_vap = null;
+            if (S_gas !== null && S_liq !== null && S_gas > S_liq) {
+                dS_vap = S_gas - S_liq;
+            } else if (dH_vap !== null && T_boil !== null && T_boil > 0) {
+                dS_vap = (dH_vap * 1000) / T_boil;
+            }
+
+            if (dH_vap !== null && dS_vap !== null) {
+                return {
+                    found: true,
+                    title: h1Text,
+                    dH: parseFloat(dH_vap.toFixed(2)),
+                    dS: parseFloat(dS_vap.toFixed(2))
+                };
+            }
+
+            return { found: false, doc };
+        }
+
+        // Direct NIST Chemistry WebBook Lookup (No PubChem fallback)
         async function fetchNISTThermodynamics(id, rawName) {
             const name = rawName.trim();
             const comp = compounds.find(c => c.id === id);
@@ -656,82 +772,47 @@
             comp.status = 'loading';
             renderCompoundInputsTable(calculateThermodynamics());
 
-            const key = name.toLowerCase();
-
-            // 1. Check verified NIST Chemistry WebBook enthalpy/entropy table
-            if (NIST_REFERENCE_DB[key]) {
-                const entry = NIST_REFERENCE_DB[key];
-                comp.name = entry.title;
-                comp.dH = entry.dH;
-                comp.dS = entry.dS;
-                comp.status = 'found';
-                showToast(`Retrieved "${entry.title}" thermodynamic parameters from NIST WebBook.`);
-                updateSimulation();
-                return;
-            }
-
-            // 2. Attempt live NIST Chemistry WebBook HTML fetch (with CORS fallback to PubChem/NIST descriptor resolution)
             try {
-                const nistUrl = `https://webbook.nist.gov/cgi/cbook.cgi?Name=${encodeURIComponent(name)}&Units=SI&cTG=on`;
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3500);
-                const nistRes = await fetch(nistUrl, { signal: controller.signal });
-                clearTimeout(timeoutId);
+                // Query NIST Chemistry WebBook Phase Change (cTG=on) & Thermochemistry (cTC=on) tables
+                const searchUrl = `https://webbook.nist.gov/cgi/cbook.cgi?Name=${encodeURIComponent(name)}&Units=SI&cTG=on&cTC=on`;
+                const htmlText = await fetchNISTPage(searchUrl);
 
-                if (nistRes.ok) {
-                    const htmlText = await nistRes.text();
-                    // Parse ΔvapH° from NIST Chemistry WebBook phase change table if returned
-                    const dhMatch = htmlText.match(/&Delta;<sub>vap<\/sub>H&deg;<\/td>\s*<td[^>]*>([0-9.]+)/i) ||
-                                    htmlText.match(/Enthalpy of vaporization[\s\S]*?([0-9]{2,3}\.[0-9]+)\s*kJ\/mol/i);
-                    if (dhMatch && dhMatch[1]) {
-                        const parsedDH = parseFloat(dhMatch[1]);
-                        comp.dH = parsedDH;
-                        comp.dS = parseFloat((62.0 + 1.02 * parsedDH).toFixed(2));
-                        comp.status = 'found';
-                        showToast(`Retrieved "${name}" from NIST Chemistry WebBook.`);
-                        updateSimulation();
-                        return;
+                if (!htmlText) {
+                    throw new Error("Unable to reach NIST Chemistry WebBook.");
+                }
+
+                let parsed = parseNISTHtml(htmlText);
+
+                // If NIST returned a search disambiguation list, follow the first exact/top species ID link
+                if (!parsed.found && parsed.doc) {
+                    const candidateLinks = Array.from(parsed.doc.querySelectorAll('a[href*="/cgi/cbook.cgi?ID="]'));
+                    const exactLink = candidateLinks.find(a => a.textContent.trim().toLowerCase() === name.toLowerCase()) || candidateLinks[0];
+                    if (exactLink) {
+                        const href = exactLink.getAttribute('href');
+                        const idMatch = href.match(/ID=([^&]+)/);
+                        if (idMatch && idMatch[1]) {
+                            const detailUrl = `https://webbook.nist.gov/cgi/cbook.cgi?ID=${encodeURIComponent(idMatch[1])}&Units=SI&cTG=on&cTC=on`;
+                            const detailHtml = await fetchNISTPage(detailUrl);
+                            if (detailHtml) {
+                                parsed = parseNISTHtml(detailHtml);
+                            }
+                        }
                     }
                 }
-                throw new Error("Direct NIST lookup blocked or compound missing");
-            } catch (nistErr) {
-                // 3. Fallback verification against PubChem/NIST synonym registry
-                try {
-                    const pubUrl = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(name)}/property/MolecularWeight,HeavyAtomCount,XLogP,TPSA,Title/JSON`;
-                    const response = await fetch(pubUrl);
-                    if (!response.ok) throw new Error("Compound not found");
-                    const data = await response.json();
-                    const props = data?.PropertyTable?.Properties?.[0];
-                    if (!props) throw new Error("No properties");
 
-                    const titleKey = (props.Title || '').toLowerCase();
-                    if (NIST_REFERENCE_DB[titleKey]) {
-                        const entry = NIST_REFERENCE_DB[titleKey];
-                        comp.dH = entry.dH;
-                        comp.dS = entry.dS;
-                        comp.status = 'found';
-                        showToast(`Matched "${props.Title}" in NIST database! Parameters populated.`);
-                        updateSimulation();
-                        return;
-                    }
-
-                    const mw = parseFloat(props.MolecularWeight) || 100;
-                    const heavyAtoms = parseFloat(props.HeavyAtomCount) || 7;
-                    const tpsa = parseFloat(props.TPSA) || 0;
-                    const xlogp = parseFloat(props.XLogP) || 2.0;
-
-                    const est_dH_kJ = 10.5 + (3.65 * heavyAtoms) + (0.14 * tpsa) + (0.45 * Math.max(0, xlogp));
-                    const est_Tb_K = 195 + (28.5 * Math.sqrt(mw)) + (0.85 * tpsa);
-                    const est_dS_J = (est_dH_kJ * 1000) / est_Tb_K;
-
-                    comp.dH = parseFloat(est_dH_kJ.toFixed(2));
-                    comp.dS = parseFloat(est_dS_J.toFixed(2));
+                if (parsed.found) {
+                    comp.name = parsed.title || name;
+                    comp.dH = parsed.dH;
+                    comp.dS = parsed.dS;
                     comp.status = 'found';
-                    showToast(`Retrieved thermodynamic data for "${props.Title || name}". Parameters remain editable.`);
-                } catch (err) {
+                    showToast(`Retrieved "${comp.name}" directly from NIST Chemistry WebBook.`);
+                } else {
                     comp.status = 'not_found';
                     showToast("Compound not found in NIST. Please manually enter thermodynamic parameters.", true);
                 }
+            } catch (err) {
+                comp.status = 'not_found';
+                showToast("Compound not found in NIST. Please manually enter thermodynamic parameters.", true);
             }
 
             updateSimulation();
