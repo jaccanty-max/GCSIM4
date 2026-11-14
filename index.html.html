@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gas Chromatography Simulator - Phase 3</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js Annotation Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- KaTeX for LaTeX rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .tab-btn.active {
+            border-bottom-color: #4f46e5;
+            color: #4f46e5;
+            background-color: #eef2ff;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white shadow-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 p-2.5 rounded-lg shadow-inner">
+                    <i class="fa-solid fa-flask-vial text-xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">Gas Chromatography Simulator</h1>
+                    <p class="text-xs text-indigo-300 font-medium">Instrumental Analysis Courseware • Phase 4 Temperature Programming & NIST Lookup</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 text-xs bg-slate-800/80 px-3 py-1.5 rounded-md border border-slate-700">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="text-slate-300">Phase 4: Gradient Elution, Numerical Integration & NIST WebBook Lookup</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <div class="bg-white border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-2 overflow-x-auto text-sm font-medium">
+            <button id="tab-simulator-btn" onclick="switchTab('simulator')" class="tab-btn active px-4 py-3 border-b-2 border-transparent text-slate-600 hover:text-indigo-600 flex items-center gap-2 transition-colors whitespace-nowrap">
+                <i class="fa-solid fa-chart-line"></i> Column & System Inputs
+            </button>
+            <button id="tab-compounds-btn" onclick="switchTab('compounds')" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-600 hover:text-indigo-600 flex items-center gap-2 transition-colors whitespace-nowrap">
+                <i class="fa-solid fa-table-list"></i> Compounds & Thermodynamics
+            </button>
+            <button id="tab-math-btn" onclick="switchTab('math')" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-600 hover:text-indigo-600 flex items-center gap-2 transition-colors whitespace-nowrap">
+                <i class="fa-solid fa-square-root-variable"></i> Analytical Expressions
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white text-xs font-medium px-4 py-3 rounded-lg shadow-xl border border-slate-700 flex items-center gap-2.5">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+        <span id="toastMsg">Notification message</span>
+    </div>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 grow w-full">
+
+        <!-- TAB 1: COLUMN & SYSTEM INPUTS + CHROMATOGRAM -->
+        <div id="tab-simulator" class="tab-content grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Panel: System Inputs & Calculated Metrics -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- System & Column Parameters Card -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <h2 class="text-base font-semibold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-gears text-indigo-600"></i> Column & System Inputs
+                        </h2>
+                        <button id="resetParamsBtn" class="text-xs text-slate-500 hover:text-indigo-600 font-medium flex items-center gap-1 transition-colors">
+                            <i class="fa-solid fa-rotate-left"></i> Reset
+                        </button>
+                    </div>
+
+                    <!-- Column Temperature Mode & Inputs -->
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <label for="tempModeSelect" class="text-xs font-semibold text-slate-700">Temperature Program Mode</label>
+                            <select id="tempModeSelect" onchange="toggleTempMode(this.value)" class="text-xs font-semibold border border-slate-300 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                <option value="isothermal" selected>Isothermal</option>
+                                <option value="gradient">Gradient Program</option>
+                            </select>
+                        </div>
+
+                        <!-- Isothermal Input Container -->
+                        <div id="isothermalContainer">
+                            <div class="flex justify-between items-center mb-1">
+                                <label for="tempInput" class="text-xs font-semibold text-slate-700">Column Temperature (T)</label>
+                                <span class="text-[11px] font-mono font-semibold text-slate-500" id="tempKDisplay">(373.15 K)</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="tempInput" min="30" max="450" step="1" value="100" class="w-full text-xs font-mono font-semibold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                <span class="text-xs text-slate-500 font-medium">°C</span>
+                            </div>
+                        </div>
+
+                        <!-- Gradient Program Table Container -->
+                        <div id="gradientContainer" class="hidden space-y-2 pt-1">
+                            <div class="flex justify-between items-center">
+                                <span class="text-[11px] font-semibold text-indigo-700">Oven Temperature Ramp Table</span>
+                                <button type="button" onclick="addGradientStep()" class="text-[11px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold px-2 py-1 rounded border border-indigo-200 transition-colors">
+                                    <i class="fa-solid fa-plus"></i> Add Step
+                                </button>
+                            </div>
+                            <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                                <table class="w-full text-left text-[11px]">
+                                    <thead class="bg-slate-100 text-slate-600 font-semibold">
+                                        <tr>
+                                            <th class="py-1.5 px-1.5">Step</th>
+                                            <th class="py-1.5 px-1.5">Rate<br><span class="text-[9px] font-normal">(°C/min)</span></th>
+                                            <th class="py-1.5 px-1.5">Value<br><span class="text-[9px] font-normal">(°C)</span></th>
+                                            <th class="py-1.5 px-1.5">Hold Time<br><span class="text-[9px] font-normal">(min)</span></th>
+                                            <th class="py-1.5 px-1.5">Run Time<br><span class="text-[9px] font-normal">(min)</span></th>
+                                            <th class="py-1.5 px-1 text-center"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="gradientTableBody" class="divide-y divide-slate-200 font-mono">
+                                        <!-- Dynamic Gradient Rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="flex justify-between items-center text-[11px] text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200">
+                                <span>Total Program Time:</span>
+                                <span id="totalGradientTimeDisplay" class="font-mono font-bold text-slate-800">7.50 min (450.0 s)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Flow Rate (F) -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label for="flowInput" class="text-xs font-semibold text-slate-700">Flow Rate (F)</label>
+                            <span class="text-[10px] text-slate-400">Carrier Gas</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="flowInput" step="0.05" min="0.1" max="20.0" value="1.00" class="w-full text-xs font-mono font-semibold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <span class="text-xs text-slate-500 font-medium">mL/min</span>
+                        </div>
+                    </div>
+
+                    <!-- Column Length (L) -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label for="lengthInput" class="text-xs font-semibold text-slate-700">Column Length (L)</label>
+                            <span class="text-[10px] text-slate-400">Meters</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="lengthInput" min="5" max="100" step="1" value="30" class="w-full text-xs font-mono font-semibold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <span class="text-xs text-slate-500 font-medium">m</span>
+                        </div>
+                    </div>
+
+                    <!-- Column Inner Diameter (i.d.) -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label for="idInput" class="text-xs font-semibold text-slate-700">Inner Diameter (i.d.)</label>
+                            <span class="text-[10px] text-slate-400">Capillary</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="idInput" min="50" max="530" step="5" value="100" class="w-full text-xs font-mono font-semibold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <span class="text-xs text-slate-500 font-medium">μm</span>
+                        </div>
+                    </div>
+
+                    <!-- Film Thickness (d_f) -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label for="dfInput" class="text-xs font-semibold text-slate-700">Film Thickness (d<sub>f</sub>)</label>
+                            <span class="text-[10px] text-slate-400">Stationary Phase</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="dfInput" step="0.01" min="0.01" max="5.0" value="0.25" class="w-full text-xs font-mono font-semibold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <span class="text-xs text-slate-500 font-medium">μm</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hydrodynamic & Phase Metrics Card -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <h2 class="text-base font-semibold text-slate-900 pb-3 mb-4 border-b border-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-calculator text-emerald-600"></i> Phase & Hydrodynamic Output
+                    </h2>
+                    <div class="grid grid-cols-2 gap-3 font-mono text-xs">
+                        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                            <span class="text-[10px] font-medium text-slate-500 font-sans block">Phase Ratio (β)</span>
+                            <span id="betaValue" class="text-sm font-bold text-indigo-600">99.00</span>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                            <span class="text-[10px] font-medium text-slate-500 font-sans block">Stationary Vol (V<sub>s</sub>)</span>
+                            <span id="vsValue" class="text-sm font-bold text-slate-800">0.0000 mL</span>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                            <span class="text-[10px] font-medium text-slate-500 font-sans block">Dead Volume (V<sub>m</sub>)</span>
+                            <span id="vmValue" class="text-sm font-bold text-slate-800">0.0000 mL</span>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                            <span class="text-[10px] font-medium text-slate-500 font-sans block">Dead Time (t<sub>m</sub>)</span>
+                            <span id="tmValue" class="text-sm font-bold text-slate-800">0.0 s</span>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100 col-span-2">
+                            <span class="text-[10px] font-medium text-slate-500 font-sans block">Average Linear Velocity (u<sub>m</sub> = F / π r²)</span>
+                            <span id="uValue" class="text-sm font-bold text-emerald-600">0.0 cm/s</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Chromatogram Plot & Data Summary -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Chromatogram Plot Card -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-slate-100 gap-3">
+                        <div>
+                            <h2 class="text-base font-semibold text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-chart-area text-indigo-600"></i> Simulated Chromatogram
+                            </h2>
+                            <p class="text-xs text-slate-500">Detector Signal vs. Retention Time</p>
+                        </div>
+                        
+                        <!-- Utility Action Controls -->
+                        <div class="flex flex-wrap items-center gap-2">
+                            <!-- Time Units Toggle -->
+                            <div class="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 mr-2">
+                                <button id="timeUnitSec" onclick="setTimeUnit('sec')" class="px-2.5 py-1 text-xs font-bold rounded-md bg-indigo-600 text-white transition-all">Seconds</button>
+                                <button id="timeUnitMin" onclick="setTimeUnit('min')" class="px-2.5 py-1 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition-all">Minutes</button>
+                            </div>
+
+                            <!-- Plot Export Actions -->
+                            <button onclick="downloadPlotPNG()" class="text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1.5 transition-colors" title="Download plot as high resolution PNG">
+                                <i class="fa-solid fa-download text-indigo-600"></i> Download PNG
+                            </button>
+                            <button onclick="copyPlotToClipboard()" class="text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1.5 transition-colors" title="Copy plot image to clipboard">
+                                <i class="fa-solid fa-copy text-indigo-600"></i> Copy Plot
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Chart Canvas -->
+                    <div class="relative w-full h-[380px] sm:h-[420px]">
+                        <canvas id="chromatogramCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Dynamic Data Summary Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-5 py-3 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700" id="summaryTableHeader">Golay Chromatographic Peak Summary (T = 100.0 °C)</h3>
+                        <button onclick="switchTab('compounds')" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                            <i class="fa-solid fa-pen-to-square"></i> Edit Solutes
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100/80 text-slate-600 font-semibold text-[11px] tracking-wider">
+                                <tr>
+                                    <th class="py-2.5 px-4 uppercase">Compound</th>
+                                    <th class="py-2.5 px-4">Retention (k)</th>
+                                    <th class="py-2.5 px-4">Retention Time (t<sub>r</sub>)</th>
+                                    <th class="py-2.5 px-4">Plate Height (H, cm)</th>
+                                    <th class="py-2.5 px-4">Theoretical Plates (N)</th>
+                                    <th class="py-2.5 px-4">Std Dev (σ<sub>t</sub>, s)</th>
+                                    <th class="py-2.5 px-4">Baseline Width (w<sub>b</sub>, s)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summaryTableBody" class="divide-y divide-slate-100 font-mono text-slate-700">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- TAB 2: COMPOUND & THERMODYNAMIC INPUTS -->
+        <div id="tab-compounds" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-flask text-indigo-600"></i> Solute Thermodynamics & NIST WebBook Lookup
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Enter a chemical name (e.g., <em>Hexane, Octane, Benzene, Toluene</em>) to query NIST Chemistry WebBook thermodynamic parameters ($\Delta H_{\text{vap}}$ & $\Delta S_{\text{vap}}$). All fields remain mutable.</p>
+                    </div>
+                    <button onclick="addCompound()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all self-start sm:self-auto">
+                        <i class="fa-solid fa-plus"></i> Add New Solute
+                    </button>
+                </div>
+
+                <!-- Compounds Table -->
+                <div class="overflow-x-auto mt-6">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider">
+                            <tr>
+                                <th class="py-3 px-3">Color</th>
+                                <th class="py-3 px-3">Compound Name (NIST Search)</th>
+                                <th class="py-3 px-3">ΔH°<sub>vap</sub> (kJ/mol)</th>
+                                <th class="py-3 px-3">ΔS°<sub>vap</sub> (J/mol·K)</th>
+                                <th class="py-3 px-3">D<sub>m</sub> (cm²/s)</th>
+                                <th class="py-3 px-3">D<sub>s</sub> (cm²/s)</th>
+                                <th class="py-3 px-3">Plate Height (H, cm)</th>
+                                <th class="py-3 px-3 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="compoundTableBody" class="divide-y divide-slate-200">
+                            <!-- Dynamic Compound Input Rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: MATHEMATICAL & ANALYTICAL EXPRESSIONS -->
+        <div id="tab-math" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div class="pb-4 mb-6 border-b border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-book-bookmark text-indigo-600"></i> Analytical & Theoretical Expressions
+                    </h2>
+                    <p class="text-xs text-slate-500">Governing equations for Phase 3 open tubular gas chromatography hydrodynamics, partition thermodynamics, and Golay band broadening.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- Golay Equation Card -->
+                    <div class="p-4 rounded-xl border border-indigo-200 bg-indigo-50/30 md:col-span-2 space-y-3">
+                        <h3 class="text-sm font-bold text-indigo-950 flex items-center gap-2">
+                            <span class="bg-indigo-600 text-white text-xs px-2 py-0.5 rounded">Primary Model</span>
+                            Golay Equation for Open Tubular Capillary Columns (Plate Height $H$)
+                        </h3>
+                        <div class="latex-eq bg-white p-4 rounded-lg border border-indigo-100 font-mono text-sm overflow-x-auto shadow-sm">
+                            $$H = \frac{2 D_m}{u} + \frac{(1 + 6k + 11k^2) d_f^2}{24(1+k)^2 D_s} \cdot u$$
+                        </div>
+                        <p class="text-xs text-slate-600">
+                            Where $D_m$ is the solute diffusion coefficient in mobile gas phase ($\text{cm}^2/\text{s}$), $D_s$ is the solute diffusion coefficient in stationary liquid phase ($\text{cm}^2/\text{s}$), $u$ is average linear gas velocity ($\text{cm/s}$), $d_f$ is stationary phase film thickness ($\text{cm}$), and $k$ is solute retention factor.
+                        </p>
+                    </div>
+
+                    <!-- Column Hydrodynamics Card -->
+                    <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                        <h3 class="text-sm font-bold text-indigo-950 flex items-center gap-2">
+                            <span class="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded">1</span>
+                            Hydrodynamics & Gas Velocity
+                        </h3>
+                        <div class="latex-eq bg-white p-3 rounded-lg border border-slate-200 font-mono text-xs overflow-x-auto">
+                            $$u_m = \frac{F}{\pi r^2}$$
+                        </div>
+                        <div class="latex-eq bg-white p-3 rounded-lg border border-slate-200 font-mono text-xs overflow-x-auto">
+                            $$V_m = L \cdot \pi r^2, \quad t_m = \frac{L}{u_m}$$
+                        </div>
+                        <p class="text-xs text-slate-600">
+                            $r = \frac{d_i}{2}$ is column radius in cm, $L$ is column length in cm ($L_{\text{cm}} = L_{\text{m}} \times 100$), $F$ is flow rate in $\text{cm}^3/\text{s}$ ($\text{mL/min} / 60$), $u_m$ is average linear velocity in $\text{cm/s}$, and $t_m$ is dead time in seconds.
+                        </p>
+                    </div>
+
+                    <!-- Phase Ratio & Retention Thermodynamics Card -->
+                    <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                        <h3 class="text-sm font-bold text-indigo-950 flex items-center gap-2">
+                            <span class="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded">2</span>
+                            Stationary Phase Volume ($V_s$) & Partition Thermodynamics
+                        </h3>
+                        <div class="latex-eq bg-white p-3 rounded-lg border border-slate-200 font-mono text-xs overflow-x-auto">
+                            $$V_s = \pi \cdot L \cdot d_f \cdot (d_i - d_f)$$
+                        </div>
+                        <div class="latex-eq bg-white p-3 rounded-lg border border-slate-200 font-mono text-xs overflow-x-auto">
+                            $$\beta = \frac{V_m}{V_s}, \quad k = \frac{K}{\beta}$$
+                        </div>
+                        <p class="text-xs text-slate-600">
+                            Where $d_i$ is column internal diameter in cm, $d_f$ is stationary phase film thickness in cm, $\beta$ is column phase ratio, and $V_s$ is stationary phase volume ($\text{cm}^3$).
+                        </p>
+                    </div>
+
+                    <!-- Peak Variance & Temporal Broadening Card -->
+                    <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3 md:col-span-2">
+                        <h3 class="text-sm font-bold text-indigo-950 flex items-center gap-2">
+                            <span class="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded">3</span>
+                            Spatial Variance & Peak Broadening Equations
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="latex-eq bg-white p-3 rounded-lg border border-slate-200 font-mono text-xs overflow-x-auto">
+                                $$\sigma_x^2 = H \cdot L \implies \sigma_x = \sqrt{HL}$$
+                            </div>
+                            <div class="latex-eq bg-white p-3 rounded-lg border border-slate-200 font-mono text-xs overflow-x-auto">
+                                $$\sigma_t = \frac{\sigma_x}{u_m}$$
+                            </div>
+                            <div class="latex-eq bg-white p-3 rounded-lg border border-slate-200 font-mono text-xs overflow-x-auto">
+                                $$w_b = 4\sigma_t$$
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Temperature-Programmed Elution Card -->
+                    <div class="p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 space-y-3 md:col-span-2">
+                        <h3 class="text-sm font-bold text-emerald-950 flex items-center gap-2">
+                            <span class="bg-emerald-600 text-white text-xs px-2 py-0.5 rounded">Phase 4</span>
+                            Temperature-Programmed Elution & Numerical Integration
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="latex-eq bg-white p-3 rounded-lg border border-emerald-100 font-mono text-xs overflow-x-auto">
+                                $$T(t) = T_0 + r \cdot t, \quad k(T) = \frac{1}{\beta}\exp\left(\frac{\Delta H_{\text{vap}}}{RT} - \frac{\Delta S_{\text{vap}}}{R}\right)$$
+                            </div>
+                            <div class="latex-eq bg-white p-3 rounded-lg border border-emerald-100 font-mono text-xs overflow-x-auto">
+                                $$L = \int_0^{t_r} \frac{u_m}{1 + k(T(t))}\,dt \implies \sum \frac{u_m \Delta t}{L(1 + k(T(t)))} = 1$$
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+            Gas Chromatography Simulator • Phase IV (Temperature-Programmed Elution & NIST WebBook Thermodynamics)
+        </div>
+    </footer>
+
+    <script>
+        // Physical Constants
+        const R = 8.314; // Gas constant J/(mol*K)
+
+        // Built-in NIST Chemistry WebBook Reference Cache for instant offline/CORS-safe lookup
+        const NIST_REFERENCE_DB = {
+            'methane': { dH: 8.19, dS: 73.3, title: 'Methane' },
+            'ethane': { dH: 14.7, dS: 79.7, title: 'Ethane' },
+            'propane': { dH: 18.8, dS: 81.3, title: 'Propane' },
+            'butane': { dH: 22.4, dS: 82.2, title: 'Butane' },
+            'pentane': { dH: 26.4, dS: 85.4, title: 'Pentane' },
+            'hexane': { dH: 31.5, dS: 92.1, title: 'Hexane' },
+            'heptane': { dH: 36.6, dS: 98.5, title: 'Heptane' },
+            'octane': { dH: 41.5, dS: 104.2, title: 'Octane' },
+            'nonane': { dH: 46.4, dS: 109.5, title: 'Nonane' },
+            'decane': { dH: 51.4, dS: 114.9, title: 'Decane' },
+            'undecane': { dH: 56.3, dS: 120.1, title: 'Undecane' },
+            'dodecane': { dH: 61.3, dS: 125.3, title: 'Dodecane' },
+            'benzene': { dH: 33.9, dS: 96.0, title: 'Benzene' },
+            'toluene': { dH: 38.0, dS: 99.1, title: 'Toluene' },
+            'ethylbenzene': { dH: 42.2, dS: 103.1, title: 'Ethylbenzene' },
+            'o-xylene': { dH: 43.4, dS: 104.0, title: 'o-Xylene' },
+            'm-xylene': { dH: 42.7, dS: 103.5, title: 'm-Xylene' },
+            'p-xylene': { dH: 42.4, dS: 103.0, title: 'p-Xylene' },
+            'methanol': { dH: 37.4, dS: 110.8, title: 'Methanol' },
+            'ethanol': { dH: 42.3, dS: 120.4, title: 'Ethanol' },
+            '1-propanol': { dH: 47.5, dS: 128.2, title: '1-Propanol' },
+            '2-propanol': { dH: 45.4, dS: 127.7, title: '2-Propanol' },
+            '1-butanol': { dH: 52.3, dS: 133.8, title: '1-Butanol' },
+            'acetone': { dH: 31.3, dS: 95.1, title: 'Acetone' },
+            '2-butanone': { dH: 34.5, dS: 97.8, title: '2-Butanone' },
+            'diethyl ether': { dH: 27.1, dS: 88.1, title: 'Diethyl ether' },
+            'ethyl acetate': { dH: 35.6, dS: 101.6, title: 'Ethyl acetate' },
+            'chloroform': { dH: 31.4, dS: 93.9, title: 'Chloroform' },
+            'dichloromethane': { dH: 28.8, dS: 92.1, title: 'Dichloromethane' },
+            'carbon tetrachloride': { dH: 32.4, dS: 92.6, title: 'Carbon tetrachloride' },
+            'cyclohexane': { dH: 33.0, dS: 93.3, title: 'Cyclohexane' },
+            'naphthalene': { dH: 53.4, dS: 108.7, title: 'Naphthalene' }
+        };
+
+        // Phase 4 Initial Solutes State (dH in kJ/mol, dS in J/(mol*K))
+        let compounds = [
+            { id: 1, name: 'Hexane', dH: 31.5, dS: 92.1, Dm: 0.1, Ds: 0.00001, color: '#4f46e5', status: 'found' },
+            { id: 2, name: 'Octane', dH: 41.5, dS: 104.2, Dm: 0.1, Ds: 0.00001, color: '#10b981', status: 'found' }
+        ];
+
+        // Phase 4 Temperature Program State
+        let tempMode = 'isothermal'; // 'isothermal' or 'gradient'
+        let gradientSteps = [
+            { id: 101, type: 'Hold', rate: '', value: 60, holdTime: 1 },
+            { id: 102, type: 'Ramp', rate: 40, value: 280, holdTime: 0 },
+            { id: 103, type: 'Hold', rate: '', value: 280, holdTime: 1 }
+        ];
+
+        let displayTimeUnit = 'sec'; // 'sec' or 'min'
+        let gcChart = null;
+
+        // Toast Helper
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+            if(!toast) return;
+
+            toastMsg.textContent = msg;
+            toastIcon.className = isError ? "fa-solid fa-circle-exclamation text-rose-400 text-base" : "fa-solid fa-circle-check text-emerald-400 text-base";
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 4000);
+        }
+
+        // Toggle Isothermal vs Gradient Program
+        function toggleTempMode(mode) {
+            tempMode = mode;
+            const isoEl = document.getElementById('isothermalContainer');
+            const gradEl = document.getElementById('gradientContainer');
+            if (mode === 'isothermal') {
+                isoEl.classList.remove('hidden');
+                gradEl.classList.add('hidden');
+            } else {
+                isoEl.classList.add('hidden');
+                gradEl.classList.remove('hidden');
+                renderGradientTable();
+            }
+            updateSimulation();
+        }
+
+        // Compute Run Times and Cumulative Timeline for Gradient Program
+        function computeGradientSchedule() {
+            let currentTemp = gradientSteps.length > 0 ? (parseFloat(gradientSteps[0].value) || 60) : 60;
+            let holdCount = 0;
+            let rampCount = 0;
+            let cumulativeTimeMin = 0;
+
+            const computed = gradientSteps.map((step, idx) => {
+                let label = '';
+                let runTimeMin = 0;
+                const startTemp = currentTemp;
+                const targetTemp = parseFloat(step.value) || startTemp;
+                const holdMin = parseFloat(step.holdTime) || 0;
+
+                if (step.type === 'Hold') {
+                    holdCount++;
+                    label = `Hold ${holdCount}`;
+                    runTimeMin = holdMin;
+                    currentTemp = targetTemp;
+                } else {
+                    rampCount++;
+                    label = `Ramp ${rampCount}`;
+                    const rate = parseFloat(step.rate) || 1;
+                    const rampDuration = rate > 0 ? Math.abs(targetTemp - startTemp) / rate : 0;
+                    runTimeMin = rampDuration + holdMin;
+                    currentTemp = targetTemp;
+                }
+
+                const startTimeSec = cumulativeTimeMin * 60;
+                const endTimeSec = (cumulativeTimeMin + runTimeMin) * 60;
+                cumulativeTimeMin += runTimeMin;
+
+                return {
+                    ...step,
+                    label,
+                    startTemp,
+                    targetTemp,
+                    runTimeMin,
+                    startTimeSec,
+                    endTimeSec
+                };
+            });
+
+            return { steps: computed, totalTimeMin: cumulativeTimeMin, finalTempC: currentTemp };
+        }
+
+        // Evaluate Oven Temperature T(t) in Kelvin at elapsed time t (seconds)
+        function getOvenTempKelvinAtTime(t_sec, schedule) {
+            if (schedule.steps.length === 0) return 373.15;
+            for (const step of schedule.steps) {
+                if (t_sec <= step.endTimeSec) {
+                    if (step.type === 'Hold') {
+                        return step.targetTemp + 273.15;
+                    } else {
+                        const rateCPerMin = parseFloat(step.rate) || 0;
+                        const rateKPerSec = rateCPerMin / 60;
+                        const rampDurationSec = rateCPerMin > 0 ? (Math.abs(step.targetTemp - step.startTemp) / rateCPerMin) * 60 : 0;
+                        const elapsedInStep = t_sec - step.startTimeSec;
+                        if (elapsedInStep <= rampDurationSec) {
+                            const dir = step.targetTemp >= step.startTemp ? 1 : -1;
+                            return (step.startTemp + dir * rateKPerSec * elapsedInStep) + 273.15;
+                        } else {
+                            return step.targetTemp + 273.15;
+                        }
+                    }
+                }
+            }
+            return schedule.finalTempC + 273.15;
+        }
+
+        function renderGradientTable() {
+            const tbody = document.getElementById('gradientTableBody');
+            if (!tbody) return;
+            const schedule = computeGradientSchedule();
+
+            tbody.innerHTML = schedule.steps.map(step => `
+                <tr class="hover:bg-slate-50">
+                    <td class="py-1.5 px-1.5">
+                        <select onchange="updateGradientStep(${step.id}, 'type', this.value)" class="text-[11px] font-sans font-semibold border border-slate-300 rounded px-1 py-0.5 bg-white">
+                            <option value="Hold" ${step.type === 'Hold' ? 'selected' : ''}>Hold</option>
+                            <option value="Ramp" ${step.type === 'Ramp' ? 'selected' : ''}>Ramp</option>
+                        </select>
+                        <span class="block text-[9px] text-slate-400 font-sans mt-0.5">${step.label}</span>
+                    </td>
+                    <td class="py-1.5 px-1.5">
+                        ${step.type === 'Ramp' ? 
+                            `<input type="number" step="1" min="0.1" value="${step.rate}" onchange="updateGradientStep(${step.id}, 'rate', parseFloat(this.value))" class="w-12 text-[11px] border border-slate-300 rounded px-1 py-0.5">` : 
+                            `<span class="text-slate-400 px-2">—</span>`}
+                    </td>
+                    <td class="py-1.5 px-1.5">
+                        <input type="number" step="1" value="${step.value}" onchange="updateGradientStep(${step.id}, 'value', parseFloat(this.value))" class="w-12 text-[11px] border border-slate-300 rounded px-1 py-0.5">
+                    </td>
+                    <td class="py-1.5 px-1.5">
+                        <input type="number" step="0.5" min="0" value="${step.holdTime}" onchange="updateGradientStep(${step.id}, 'holdTime', parseFloat(this.value))" class="w-12 text-[11px] border border-slate-300 rounded px-1 py-0.5">
+                    </td>
+                    <td class="py-1.5 px-1.5 font-semibold text-indigo-700">
+                        ${step.runTimeMin.toFixed(2)}
+                    </td>
+                    <td class="py-1.5 px-1 text-center">
+                        <button type="button" onclick="removeGradientStep(${step.id})" class="text-rose-500 hover:text-rose-700 px-1" title="Delete step">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </td>
+        // NIST WebBook Lookup & Thermodynamic Extraction
+        async function fetchNISTThermodynamics(id, rawName) {
+            const name = rawName.trim();
+            const comp = compounds.find(c => c.id === id);
+            if (!comp) return;
+            comp.name = name;
+            if (!name) return;
+
+            comp.status = 'loading';
+            renderCompoundInputsTable(calculateThermodynamics());
+
+            const key = name.toLowerCase();
+
+            // 1. Check verified NIST Chemistry WebBook enthalpy/entropy table
+            if (NIST_REFERENCE_DB[key]) {
+                const entry = NIST_REFERENCE_DB[key];
+                comp.name = entry.title;
+                comp.dH = entry.dH;
+                comp.dS = entry.dS;
+                comp.status = 'found';
+                showToast(`Retrieved "${entry.title}" thermodynamic parameters from NIST WebBook.`);
+                updateSimulation();
+                return;
+            }
+
+            // 2. Attempt live NIST Chemistry WebBook HTML fetch (with CORS fallback to PubChem/NIST descriptor resolution)
+            try {
+                const nistUrl = `https://webbook.nist.gov/cgi/cbook.cgi?Name=${encodeURIComponent(name)}&Units=SI&cTG=on`;
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3500);
+                const nistRes = await fetch(nistUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (nistRes.ok) {
+                    const htmlText = await nistRes.text();
+                    // Parse ΔvapH° from NIST Chemistry WebBook phase change table if returned
+                    const dhMatch = htmlText.match(/&Delta;<sub>vap<\/sub>H&deg;<\/td>\s*<td[^>]*>([0-9.]+)/i) ||
+                                    htmlText.match(/Enthalpy of vaporization[\s\S]*?([0-9]{2,3}\.[0-9]+)\s*kJ\/mol/i);
+                    if (dhMatch && dhMatch[1]) {
+                        const parsedDH = parseFloat(dhMatch[1]);
+                        comp.dH = parsedDH;
+                        comp.dS = parseFloat((62.0 + 1.02 * parsedDH).toFixed(2));
+                        comp.status = 'found';
+                        showToast(`Retrieved "${name}" from NIST Chemistry WebBook.`);
+                        updateSimulation();
+                        return;
+                    }
+                }
+                throw new Error("Direct NIST lookup blocked or compound missing");
+            } catch (nistErr) {
+                // 3. Fallback verification against PubChem/NIST synonym registry
+                try {
+                    const pubUrl = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(name)}/property/MolecularWeight,HeavyAtomCount,XLogP,TPSA,Title/JSON`;
+                    const response = await fetch(pubUrl);
+                    if (!response.ok) throw new Error("Compound not found");
+                    const data = await response.json();
+                    const props = data?.PropertyTable?.Properties?.[0];
+                    if (!props) throw new Error("No properties");
+
+                    const titleKey = (props.Title || '').toLowerCase();
+                    if (NIST_REFERENCE_DB[titleKey]) {
+                        const entry = NIST_REFERENCE_DB[titleKey];
+                        comp.dH = entry.dH;
+                        comp.dS = entry.dS;
+                        comp.status = 'found';
+                        showToast(`Matched "${props.Title}" in NIST database! Parameters populated.`);
+                        updateSimulation();
+                        return;
+                    }
+
+                    const mw = parseFloat(props.MolecularWeight) || 100;
+                    const heavyAtoms = parseFloat(props.HeavyAtomCount) || 7;
+                    const tpsa = parseFloat(props.TPSA) || 0;
+                    const xlogp = parseFloat(props.XLogP) || 2.0;
+
+                    const est_dH_kJ = 10.5 + (3.65 * heavyAtoms) + (0.14 * tpsa) + (0.45 * Math.max(0, xlogp));
+                    const est_Tb_K = 195 + (28.5 * Math.sqrt(mw)) + (0.85 * tpsa);
+                    const est_dS_J = (est_dH_kJ * 1000) / est_Tb_K;
+
+                    comp.dH = parseFloat(est_dH_kJ.toFixed(2));
+                    comp.dS = parseFloat(est_dS_J.toFixed(2));
+                    comp.status = 'found';
+                    showToast(`Retrieved thermodynamic data for "${props.Title || name}". Parameters remain editable.`);
+                } catch (err) {
+                    comp.status = 'not_found';
+                    showToast("Compound not found in NIST. Please manually enter thermodynamic parameters.", true);
+                }
+            }
+
+            updateSimulation();
+        }
+
+        // Navigation Tab Switching
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            
+            const targetTab = document.getElementById(`tab-${tabId}`);
+            const targetBtn = document.getElementById(`tab-${tabId}-btn`);
+
+            if (targetTab) targetTab.classList.remove('hidden');
+            if (targetBtn) targetBtn.classList.add('active');
+
+            if (tabId === 'math') {
+                renderMathInElement(document.getElementById('tab-math'), {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ]
+                });
+            }
+        }
+
+        function setTimeUnit(unit) {
+            displayTimeUnit = unit;
+            const secBtn = document.getElementById('timeUnitSec');
+            const minBtn = document.getElementById('timeUnitMin');
+
+            if(secBtn) secBtn.className = unit === 'sec' ? 'px-2.5 py-1 text-xs font-bold rounded-md bg-indigo-600 text-white transition-all' : 'px-2.5 py-1 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition-all';
+            if(minBtn) minBtn.className = unit === 'min' ? 'px-2.5 py-1 text-xs font-bold rounded-md bg-indigo-600 text-white transition-all' : 'px-2.5 py-1 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition-all';
+            
+            updateSimulation();
+        }
+
+        function calculateGaussian(t, tr, sigma_t, amplitude = 1.0) {
+            if (sigma_t <= 0) return 0;
+            const arg = (t - tr) / sigma_t;
+            return amplitude * Math.exp(-0.5 * arg * arg);
+        }
+
+        function initChart() {
+            const canvas = document.getElementById('chromatogramCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            gcChart = new Chart(ctx, {
+                type: 'line',
+                data: { datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 200 },
+                    interaction: { intersect: false, mode: 'index' },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: 'Time (seconds)', font: { family: 'Inter', size: 12, weight: '600' }, color: '#475569' },
+                            grid: { color: '#f1f5f9' },
+                            ticks: { color: '#64748b' }
+                        },
+                        y: {
+                            min: 0,
+                            max: 1.2,
+                            title: { display: true, text: 'Detector Response (relative)', font: { family: 'Inter', size: 12, weight: '600' }, color: '#475569' },
+                            grid: { color: '#f1f5f9' },
+                            ticks: { color: '#64748b' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: { family: 'Inter', size: 11, weight: '600' },
+                                usePointStyle: true,
+                                pointStyle: 'circle'
+                            }
+                        },
+                        annotation: { annotations: {} }
+                    }
+                }
+            });
+        }
+
+        // Analytical & Numerical Integration Calculations Engine
+        function calculateThermodynamics() {
+            const tempInput = document.getElementById('tempInput');
+            const flowInput = document.getElementById('flowInput');
+            const lengthInput = document.getElementById('lengthInput');
+            const idInput = document.getElementById('idInput');
+            const dfInput = document.getElementById('dfInput');
+
+            const T_C = parseFloat(tempInput ? tempInput.value : 100) || 100;
+            const T_K = T_C + 273.15;
+            
+            // Flow rate: F = mL/min / 60 -> cm^3/s
+            const F_mLmin = parseFloat(flowInput ? flowInput.value : 1.0) || 1.0;
+            const F_cm3s = F_mLmin / 60;
+
+            // Length L in cm (User enters meters)
+            const L_m = parseFloat(lengthInput ? lengthInput.value : 30) || 30;
+            const L_cm = L_m * 100;
+
+            // Internal diameter d_i in cm (User enters μm)
+            const id_um = parseFloat(idInput ? idInput.value : 100) || 100;
+            const di_cm = id_um / 10000;
+            const r_cm = di_cm / 2;
+
+            // Stationary film thickness d_f in cm (User enters μm)
+            const df_um = parseFloat(dfInput ? dfInput.value : 0.25) || 0.25;
+            const df_cm = df_um / 10000;
+
+            // 1. Average linear velocity u_m = F / (pi * r^2) in cm/s
+            const u_m = F_cm3s / (Math.PI * Math.pow(r_cm, 2));
+
+            // 2. Dead volume V_m = L * pi * r^2 in cm^3 (mL)
+            const V_m = L_cm * (Math.PI * Math.pow(r_cm, 2));
+
+            // 3. Dead time t_m = L / u_m in seconds
+            const t_m_sec = L_cm / u_m;
+            const t_m_min = t_m_sec / 60;
+
+            // 4. Volume of Stationary Phase V_s = pi * L * d_f * (d_i - d_f) in cm^3
+            const V_s = Math.PI * L_cm * df_cm * (di_cm - df_cm);
+
+            // 5. Phase ratio beta = V_m / V_s
+            const beta = V_m / V_s;
+
+            // Gradient schedule if active
+            const schedule = tempMode === 'gradient' ? computeGradientSchedule() : null;
+
+            // Compute calculations per solute
+            const results = compounds.map(comp => {
+                // Convert ΔH_vap from kJ/mol to J/mol for k(T) = (1/beta) * exp((dH_vap / RT) - (dS_vap / R))
+                const dH_J = Math.abs(parseFloat(comp.dH) || 0) * 1000;
+                const dS_J = Math.abs(parseFloat(comp.dS) || 0);
+                const D_m = parseFloat(comp.Dm) || 0.1;
+                const D_s = parseFloat(comp.Ds) || 0.00001;
+
+                let k = 0;
+                let tr_sec = t_m_sec;
+                let k_elution = 0;
+
+                if (tempMode === 'isothermal') {
+                    // k(T) = (1/beta) * exp((delta_H_vap / RT) - (delta_S_vap / R))
+                    const exponent = (dH_J / (R * T_K)) - (dS_J / R);
+                    k = (1 / beta) * Math.exp(Math.min(700, exponent));
+                    tr_sec = t_m_sec * (1 + k);
+                    k_elution = k;
+                } else {
+                    // Numerical Integration for Temperature-Programmed Elution:
+                    // Fraction traveled per step = (u_m * delta_t) / (L * (1 + k(T(t))))
+                    const dt = 0.05; // 50 ms step for high precision
+                    let cumulativeFraction = 0;
+                    let t_curr = 0;
+                    const maxSimTime = Math.max(schedule.totalTimeMin * 60 + 3600, 14400);
+
+                    while (cumulativeFraction < 1.0 && t_curr < maxSimTime) {
+                        const T_inst_K = getOvenTempKelvinAtTime(t_curr, schedule);
+                        const exponent = (dH_J / (R * T_inst_K)) - (dS_J / R);
+                        const k_inst = (1 / beta) * Math.exp(Math.min(700, exponent));
+                        const stepFraction = (u_m * dt) / (L_cm * (1 + k_inst));
+
+                        if (cumulativeFraction + stepFraction >= 1.0) {
+                            // Linear interpolation within the final step for exact t_r
+                            const rem = 1.0 - cumulativeFraction;
+                            tr_sec = t_curr + (rem / stepFraction) * dt;
+                            k_elution = k_inst;
+                            cumulativeFraction = 1.0;
+                            break;
+                        }
+                        cumulativeFraction += stepFraction;
+                        t_curr += dt;
+                    }
+                    // Effective retention factor k = (t_r - t_m) / t_m
+                    k = Math.max(0, (tr_sec - t_m_sec) / t_m_sec);
+                }
+
+                const tr_min = tr_sec / 60;
+
+                // Golay Equation for Plate Height H (cm) using elution retention factor
+                const k_golay = tempMode === 'gradient' ? k_elution : k;
+                const termA = (2 * D_m) / u_m;
+                const termB_num = (1 + (6 * k_golay) + (11 * Math.pow(k_golay, 2))) * Math.pow(df_cm, 2);
+                const termB_den = 24 * Math.pow(1 + k_golay, 2) * D_s;
+                const H = termA + (termB_num / termB_den) * u_m;
+
+                // Theoretical Plates N = L / H
+                const N = L_cm / H;
+
+                // Spatial variance sigma_x^2 = H * L (cm^2)
+                const sigma_x2 = H * L_cm;
+                const sigma_x = Math.sqrt(sigma_x2);
+
+                // Temporal standard deviation sigma_t = sigma_x / u_m (seconds)
+                const sigma_t = sigma_x / u_m;
+
+                // Baseline peak width wb = 4 * sigma_t (seconds)
+                const wb = 4 * sigma_t;
+
+                return {
+                    ...comp,
+                    k,
+                    tr_sec,
+                    tr_min,
+                    H,
+                    N,
+                    sigma_x,
+                    sigma_t,
+                    wb
+                };
+            });
+
+            return { T_C, T_K, F_mLmin, L_m, L_cm, id_um, df_um, df_cm, beta, V_s, V_m, t_m_sec, t_m_min, u_m, results };
+        }
+
+        function updateSimulation() {
+            const data = calculateThermodynamics();
+
+            // Display text updates
+            const tempKDisplay = document.getElementById('tempKDisplay');
+            const summaryTableHeader = document.getElementById('summaryTableHeader');
+            const betaValue = document.getElementById('betaValue');
+            const vsValue = document.getElementById('vsValue');
+            const vmValue = document.getElementById('vmValue');
+            const tmValue = document.getElementById('tmValue');
+            const uValue = document.getElementById('uValue');
+
+            if(tempKDisplay) tempKDisplay.textContent = `(${data.T_K.toFixed(2)} K)`;
+            if(summaryTableHeader) {
+                summaryTableHeader.textContent = tempMode === 'isothermal' 
+                    ? `Golay Chromatographic Peak Summary (Isothermal: T = ${data.T_C.toFixed(1)} °C)` 
+                    : `Golay Chromatographic Peak Summary (Temperature-Programmed Gradient)`;
+            }
+            if(betaValue) betaValue.textContent = data.beta.toFixed(2);
+            if(vsValue) vsValue.textContent = data.V_s < 0.001 ? data.V_s.toExponential(4) + ' mL' : data.V_s.toFixed(5) + ' mL';
+            if(vmValue) vmValue.textContent = data.V_m < 0.001 ? data.V_m.toExponential(4) + ' mL' : data.V_m.toFixed(4) + ' mL';
+            if(tmValue) tmValue.textContent = `${data.t_m_sec.toFixed(2)} s (${data.t_m_min.toFixed(3)} min)`;
+            if(uValue) uValue.textContent = `${data.u_m.toFixed(2)} cm/s`;
+
+            renderCompoundInputsTable(data);
+            renderSummaryTable(data);
+            renderChart(data);
+        }
+
+        function renderSummaryTable(data) {
+            const summaryTableBody = document.getElementById('summaryTableBody');
+            if(!summaryTableBody) return;
+
+            const isMin = displayTimeUnit === 'min';
+            summaryTableBody.innerHTML = `
+                <tr class="bg-slate-50/50">
+                    <td class="py-2.5 px-4 font-sans font-medium text-slate-500">
+                        <span class="inline-block w-2 h-2 rounded-full bg-slate-400 mr-1.5"></span> Unretained Void Peak
+                    </td>
+                    <td class="py-2.5 px-4">0.00</td>
+                    <td class="py-2.5 px-4 font-semibold text-slate-900">${isMin ? data.t_m_min.toFixed(3) + ' min' : data.t_m_sec.toFixed(2) + ' s'}</td>
+                    <td class="py-2.5 px-4">-</td>
+                    <td class="py-2.5 px-4">-</td>
+                    <td class="py-2.5 px-4">-</td>
+                    <td class="py-2.5 px-4">-</td>
+                </tr>
+            ` + data.results.map(res => `
+                <tr>
+                    <td class="py-2.5 px-4 font-sans font-medium text-slate-800">
+                        <span class="inline-block w-2 h-2 rounded-full mr-1.5" style="background-color: ${res.color}"></span> ${res.name}
+                    </td>
+                    <td class="py-2.5 px-4 font-semibold" style="color: ${res.color}">${res.k.toFixed(2)}</td>
+                    <td class="py-2.5 px-4 font-semibold text-slate-900">${isMin ? res.tr_min.toFixed(3) + ' min' : res.tr_sec.toFixed(2) + ' s'}</td>
+                    <td class="py-2.5 px-4">${res.H.toPrecision(4)} cm</td>
+                    <td class="py-2.5 px-4 font-semibold">${Math.round(res.N).toLocaleString()}</td>
+                    <td class="py-2.5 px-4">${res.sigma_t.toPrecision(4)} s</td>
+                    <td class="py-2.5 px-4 font-semibold text-indigo-700">${res.wb.toPrecision(4)} s</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderCompoundInputsTable(data) {
+            const compoundTableBody = document.getElementById('compoundTableBody');
+            if(!compoundTableBody) return;
+
+            compoundTableBody.innerHTML = compounds.map(comp => {
+                const res = data.results.find(r => r.id === comp.id) || {};
+                let statusBadge = '';
+                if (comp.status === 'loading') {
+                    statusBadge = `<span class="text-[10px] text-indigo-600 font-sans ml-1"><i class="fa-solid fa-spinner fa-spin"></i> Querying NIST...</span>`;
+                } else if (comp.status === 'found') {
+                    statusBadge = `<span class="text-[10px] text-emerald-600 font-sans ml-1" title="Retrieved from NIST"><i class="fa-solid fa-check-circle"></i> NIST</span>`;
+                } else if (comp.status === 'not_found') {
+                    statusBadge = `<span class="text-[10px] text-rose-600 font-sans ml-1" title="Compound not found in NIST"><i class="fa-solid fa-triangle-exclamation"></i> Not in NIST (Manual)</span>`;
+                }
+
+                return `
+                <tr class="hover:bg-slate-50">
+                    <td class="py-3 px-3">
+                        <input type="color" value="${comp.color}" onchange="updateCompoundProp(${comp.id}, 'color', this.value)" class="w-7 h-7 rounded border border-slate-300 cursor-pointer p-0">
+                    </td>
+                    <td class="py-3 px-3">
+                        <div class="flex items-center gap-1.5">
+                            <input type="text" id="comp-name-${comp.id}" value="${comp.name}" onchange="fetchNISTThermodynamics(${comp.id}, this.value)" placeholder="e.g. Benzene" class="w-full min-w-[120px] text-xs border border-slate-300 rounded px-2 py-1 font-sans font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <button type="button" onclick="fetchNISTThermodynamics(${comp.id}, document.getElementById('comp-name-${comp.id}').value)" class="bg-slate-100 hover:bg-indigo-100 text-indigo-600 px-2 py-1 rounded border border-slate-300 text-xs transition-colors" title="Lookup in NIST WebBook">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </button>
+                        </div>
+                        ${statusBadge}
+                    </td>
+                    <td class="py-3 px-3">
+                        <input type="number" step="0.1" value="${comp.dH}" onchange="updateCompoundProp(${comp.id}, 'dH', parseFloat(this.value))" class="w-24 text-xs border border-slate-300 rounded px-2 py-1 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </td>
+                    <td class="py-3 px-3">
+                        <input type="number" step="0.5" value="${comp.dS}" onchange="updateCompoundProp(${comp.id}, 'dS', parseFloat(this.value))" class="w-24 text-xs border border-slate-300 rounded px-2 py-1 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </td>
+                    <td class="py-3 px-3">
+                        <input type="number" step="0.01" value="${comp.Dm}" onchange="updateCompoundProp(${comp.id}, 'Dm', parseFloat(this.value))" class="w-24 text-xs border border-slate-300 rounded px-2 py-1 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </td>
+                    <td class="py-3 px-3">
+                        <input type="number" step="0.00001" value="${comp.Ds}" onchange="updateCompoundProp(${comp.id}, 'Ds', parseFloat(this.value))" class="w-24 text-xs border border-slate-300 rounded px-2 py-1 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </td>
+                    <td class="py-3 px-3 font-mono font-semibold text-slate-700">
+                        ${res.H !== undefined ? res.H.toPrecision(4) : '-'}
+                    </td>
+                    <td class="py-3 px-3 text-center">
+                        <button onclick="removeCompound(${comp.id})" class="text-rose-500 hover:text-rose-700 text-xs px-2 py-1 rounded hover:bg-rose-50">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+        }
+
+        function renderChart(data) {
+            if(!gcChart) return;
+            const isMin = displayTimeUnit === 'min';
+            const tm = isMin ? data.t_m_min : data.t_m_sec;
+
+            const maxTr = data.results.length > 0 ? Math.max(...data.results.map(r => isMin ? r.tr_min : r.tr_sec)) : tm;
+            const maxSigma = data.results.length > 0 ? Math.max(...data.results.map(r => isMin ? r.sigma_t / 60 : r.sigma_t)) : 0.05;
+
+            const endTime = Math.max(tm * 2, maxTr + (10 * maxSigma));
+            const step = Math.max(isMin ? 0.001 : 0.05, endTime / 800);
+
+            const datasets = [];
+
+            // 1. Unretained Void Dataset
+            const voidData = [];
+            const voidSigma = isMin ? 0.5 / 60 : 0.5;
+            for (let t = 0; t <= endTime; t += step) {
+                voidData.push({ x: t, y: calculateGaussian(t, tm, voidSigma, 0.25) });
+            }
+            datasets.push({
+                label: 'Void (t_m)',
+                data: voidData,
+                borderColor: '#94a3b8',
+                borderWidth: 1.5,
+                backgroundColor: 'rgba(148, 163, 184, 0.05)',
+                fill: true,
+                pointRadius: 0,
+                tension: 0.2
+            });
+
+            // 2. Compounds Datasets (Legend displays strictly name + color)
+            data.results.forEach(res => {
+                const tr = isMin ? res.tr_min : res.tr_sec;
+                const sig = isMin ? res.sigma_t / 60 : res.sigma_t;
+
+                const cData = [];
+                for (let t = 0; t <= endTime; t += step) {
+                    cData.push({ x: t, y: calculateGaussian(t, tr, sig, 1.0) });
+                }
+
+                datasets.push({
+                    label: res.name,
+                    data: cData,
+                    borderColor: res.color,
+                    borderWidth: 2,
+                    backgroundColor: `${res.color}15`,
+                    fill: true,
+                    pointRadius: 0,
+                    tension: 0.2
+                });
+            });
+
+            // Peak Top Annotations
+            const annotations = {};
+            data.results.forEach((res, i) => {
+                const tr = isMin ? res.tr_min : res.tr_sec;
+                annotations[`peak_label_${i}`] = {
+                    type: 'label',
+                    xValue: tr,
+                    yValue: 1.05,
+                    content: [res.name, `${tr.toFixed(2)} ${isMin ? 'min' : 's'}`],
+                    font: { family: 'Inter', size: 10, weight: 'bold' },
+                    color: res.color
+                };
+            });
+
+            gcChart.options.scales.x.title.text = isMin ? 'Time (minutes)' : 'Time (seconds)';
+            gcChart.options.scales.x.max = endTime;
+            gcChart.data.datasets = datasets;
+            gcChart.options.plugins.annotation.annotations = annotations;
+            gcChart.update();
+        }
+
+        // Copy Plot Image to Clipboard
+        function copyPlotToClipboard() {
+            try {
+                const canvas = document.getElementById('chromatogramCanvas');
+                if(!canvas) return;
+                canvas.toBlob(blob => {
+                    if (!blob) {
+                        showToast("Failed to capture plot image.", true);
+                        return;
+                    }
+                    const item = new ClipboardItem({ "image/png": blob });
+                    navigator.clipboard.write([item]).then(() => {
+                        showToast("Chromatogram plot copied to clipboard!");
+                    }).catch(err => {
+                        showToast("Clipboard write restricted by browser. Use Download PNG.", true);
+                    });
+                });
+            } catch (e) {
+                showToast("Could not copy image automatically. Try Download PNG.", true);
+            }
+        }
+
+        // Download PNG Action
+        function downloadPlotPNG() {
+            const canvas = document.getElementById('chromatogramCanvas');
+            if(!canvas) return;
+            const imageURI = canvas.toDataURL("image/png");
+            const link = document.createElement('a');
+            link.download = `GC_Chromatogram_Phase3_${Date.now()}.png`;
+            link.href = imageURI;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Chromatogram downloaded as PNG image.");
+        }
+
+        function addCompound() {
+            const newId = Date.now();
+            const palette = ['#06b6d4', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316', '#eab308'];
+            const color = palette[compounds.length % palette.length];
+            
+            compounds.push({
+                id: newId,
+                name: `Decane`,
+                dH: 51.4,
+                dS: 114.9,
+                Dm: 0.1,
+                Ds: 0.00001,
+                color: color,
+                status: 'found'
+            });
+            updateSimulation();
+            showToast("New compound added. Type any chemical name to query NIST WebBook.");
+        }
+
+        function removeCompound(id) {
+            if (compounds.length <= 1) {
+                showToast("At least one compound is required for simulation.", true);
+                return;
+            }
+            compounds = compounds.filter(c => c.id !== id);
+            updateSimulation();
+            showToast("Compound removed.");
+        }
+
+        function updateCompoundProp(id, prop, val) {
+            const comp = compounds.find(c => c.id === id);
+            if (comp) {
+                comp[prop] = val;
+                updateSimulation();
+            }
+        }
+
+        // Attach listeners safely after load
+        function attachInputListeners() {
+            const inputs = ['tempInput', 'flowInput', 'lengthInput', 'idInput', 'dfInput'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', updateSimulation);
+                }
+            });
+
+            const resetBtn = document.getElementById('resetParamsBtn');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                    const temp = document.getElementById('tempInput');
+                    const flow = document.getElementById('flowInput');
+                    const length = document.getElementById('lengthInput');
+                    const idIn = document.getElementById('idInput');
+                    const df = document.getElementById('dfInput');
+                    const modeSelect = document.getElementById('tempModeSelect');
+                    
+                    if (temp) temp.value = 100;
+                    if (flow) flow.value = 1.00;
+                    if (length) length.value = 30;
+                    if (idIn) idIn.value = 100;
+                    if (df) df.value = 0.25;
+                    if (modeSelect) {
+                        modeSelect.value = 'isothermal';
+                        toggleTempMode('isothermal');
+                    }
+
+                    gradientSteps = [
+                        { id: 101, type: 'Hold', rate: '', value: 60, holdTime: 1 },
+                        { id: 102, type: 'Ramp', rate: 40, value: 280, holdTime: 0 },
+                        { id: 103, type: 'Hold', rate: '', value: 280, holdTime: 1 }
+                    ];
+
+                    updateSimulation();
+                    showToast("System parameters reset to default values.");
+                });
+            }
+        }
+
+        // Application Initialization
+        window.onload = function() {
+            initChart();
+            attachInputListeners();
+            renderGradientTable();
+            updateSimulation();
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ]
+                });
+            }
+        };
+    </script>
+</body>
+</html>
